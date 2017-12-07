@@ -9,9 +9,14 @@ namespace Kattis
 {
     class Program
     {
-        static void Main(string[] args)
+        class Solver
         {
-            var input = @"mqdjo (83)
+            public static List<Person> Persons = new List<Person>();
+
+            public Solver()
+            {
+
+                var input = @"mqdjo (83)
 jzgxy (15) -> usdayz, zvbru
 altep (75)
 gaieus (117) -> unkring, wjgvjlg
@@ -1184,77 +1189,203 @@ tngvv (27)
 koklf (61) -> jqtbsy, eetpan, vamssbi, rvwvokn, vpjsxth";
 
 
-//            input = @"pbga (66)
-//xhth (57)
-//ebii (61)
-//havc (66)
-//ktlj (57)
-//fwft (72) -> ktlj, cntj, xhth
-//qoyq (66)
-//padx (45) -> pbga, havc, qoyq
-//tknk (41) -> ugml, padx, fwft
-//jptl (61)
-//ugml (68) -> gyxo, ebii, jptl
-//gyxo (61)
-//cntj (57)";
+                //                input = @"pbga (66)
+                //xhth (57)
+                //ebii (61)
+                //havc (66)
+                //ktlj (57)
+                //fwft (72) -> ktlj, cntj, xhth
+                //qoyq (66)
+                //padx (45) -> pbga, havc, qoyq
+                //tknk (41) -> ugml, padx, fwft
+                //jptl (61)
+                //ugml (68) -> gyxo, ebii, jptl
+                //gyxo (61)
+                //cntj (57)";
 
 
-            //var allParents = new List<Person>();
-            var allParents = new List<string>();
-            var allNames = new List<string>();
+                //var allParents = new List<Person>();
 
-            using (StringReader reader = new StringReader(input))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
+                //var people = new List<Person>();
+
+                var allParents = new List<string>();
+                var allNames = new List<string>();
+
+                using (StringReader reader = new StringReader(input))
                 {
-                    List<string> tokens = line.Split().ToList();
-
-                    var name = tokens[0];
-                    var weight = tokens[1]; // dont use yet
-
-                    if (tokens.Count() > 2)
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
                     {
-                        var arrow = tokens[2];
-                        var children = tokens.Skip(3).Select(x => x.Replace(",", "")).ToList();
+                        List<string> tokens = line.Split().ToList();
 
-                        var person = new Person(name, weight, children);
-                        //allParents.Add(person);
+                        var name = tokens[0];
+                        var weightString = tokens[1].Remove(tokens[1].Length - 1).Substring(1); // remove "(" and ")"
 
-                        allParents.Add(name);
+                        int weight = int.Parse(weightString);
 
-                        allNames.Add(name);
-                        allNames.AddRange(children);
+                        if (tokens.Count() > 2)
+                        {
+                            var arrow = tokens[2];
+                            var children = tokens.Skip(3).Select(x => x.Replace(",", "")).ToList();
+
+                            var person = new Person(name, weight, children);
+                            Persons.Add(person);
+
+                            // stuf for finding bottom parent.
+                            allParents.Add(name);
+                            allNames.Add(name);
+                            allNames.AddRange(children);
+                        }
+                        else
+                        {
+                            Persons.Add(new Person(name, weight, new List<string>()));
+                        }
+
                     }
-
                 }
-            }
-            //Console.WriteLine(allNames);
 
-            for (int i = 0; i < allParents.Count(); i++)
-            {
-                var current = allParents[i];
-                if (allNames.FindAll(x => x == current).Count() == 1)
+                //Console.WriteLine(allNames);
+
+                string grandParent = "";
+
+                for (int i = 0; i < allParents.Count(); i++)
                 {
-                    Console.WriteLine(current);
+                    var currentParent = allParents[i];
+                    if (allNames.FindAll(x => x == currentParent).Count() == 1)
+                    {
+                        //Console.WriteLine(current);
+                        grandParent = currentParent;
+                        break;
+                    }
+                }
+
+                Console.WriteLine("GrandParent is: ", grandParent);
+
+                var start = Persons.Find(x => x.Name == grandParent);
+
+                FindUnbalance(start, null);
+
+            }
+
+            
+
+            private void FindUnbalance(Person current, Person previous)
+            {
+                //ignore leafs, they are balanced by definition
+                if (current.Children.Count() == 0) return;
+
+                var childrenWeights = current.Children.Select(x => x.Weight);
+                var derp = childrenWeights.ToList();
+
+                // Is this parent balanced?
+                var allSameWeight = (childrenWeights.Distinct().Count() == 1);
+
+                if (!allSameWeight)
+                {
+                    //normal case, go deeper into the odd man out since it is clearly there where the error is
+                    var oddOne = GetOddOne(current);
+                    
+                    FindUnbalance(oddOne, current);
+                }
+                else
+                {
+                    var oddOne = GetOddOne(previous);
+                    Console.WriteLine(oddOne.Name);
+                    Console.WriteLine(oddOne.weight);
+
+                    // find on of the other children and diff to find how much they differed
+                    var diff = previous.Children[0].Weight - oddOne.Weight;
+                    if (diff == 0) diff = previous.Children[1].Weight - oddOne.Weight;
+
+                    Console.WriteLine(oddOne.weight + diff);
+                }
+            }
+
+            /// <summary>
+            /// Get the child that does not weight as much as the others
+            /// </summary>
+            /// <param name="current"></param>
+            /// <returns></returns>
+            private Person GetOddOne(Person current)
+            {
+                var childrenWeights = current.Children.Select(x => x.Weight);
+
+                var max = childrenWeights.Max();
+                var result = childrenWeights.GroupBy(i => i).OrderBy(g => g.Count()).Select(g => g.Key).ToList();
+
+                var mostCommon = result.Last();
+                var leastCommon = result.First();
+
+                // there is only one leastCommon
+                var oddOne = current.Children.Where(x => x.Weight == leastCommon).First();
+                return oddOne;
+            }
+
+            public class Person
+            {
+                public string Name { get; set; }
+
+                public int weight;
+                public int Weight
+                {
+                    get
+                    {
+                        if (ChildrenNames.Count() == 0) return weight;
+                        return weight + Children.Sum(x => x.Weight);
+                    }
+                    set
+                    {
+                        weight = value;
+                    }
+                }
+                public List<string> ChildrenNames { get; set; }
+
+                public List<Person> children = new List<Person>();
+                public List<Person> Children
+                {
+                    get
+                    {
+                        // if children list is setup already return it, otherwise get it
+                        if (children.Count() != 0) return children;
+
+                        foreach (var name in ChildrenNames)
+                        {
+                            children.Add(Persons.Find(x => x.Name == name));
+                        }
+                        return children;
+                    }
+                }
+
+                public bool isEven()
+                {
+                    var childrenWeights = this.Children.Select(x => x.Weight);
+
+                    var allSameWeight = (childrenWeights.Distinct().Count() == 1);
+                    return allSameWeight;
+                }
+
+                public Person(string name, int weight, List<string> children)
+                {
+                    this.Name = name;
+                    this.Weight = weight;
+                    this.ChildrenNames = children;
+
+                    // see if these children already exist
                 }
             }
         }
-    }
 
-    class Person
-    {
-        public string Name;
-        //public List<Person> Children;
-        private string Weight;
-        private List<string> children;
 
-        public Person(string name, string weight, List<string> children)
+
+
+
+        static void Main(string[] args)
         {
-            Name = name;
-            this.Weight = weight;
-            this.children = children;
+            var solver = new Solver();
+
         }
     }
+
+
 
 }
