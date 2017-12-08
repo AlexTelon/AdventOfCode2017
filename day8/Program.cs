@@ -44,6 +44,7 @@ namespace Kattis
         }
 
         public static Dictionary<string, int> Registers = new Dictionary<string, int>();
+        public static int MaxValFound = -999999;
 
 
         static void Main(string[] args)
@@ -1062,13 +1063,14 @@ pc dec 916 if vt <= 426";
                 string line;
                 while ((line = reader.ReadLine()) != null)
                 {
-                    //Console.WriteLine(line);
+                    Console.WriteLine(line);
                     ExecuteInstruction(line);
                 }
             }
 
             var max = Registers.Values.Max();
             Console.WriteLine(max);
+            Console.WriteLine(MaxValFound);
         }
 
         private static int GetRegisterValue(string key)
@@ -1095,8 +1097,10 @@ pc dec 916 if vt <= 426";
                 {
                     Registers.Add(register, addValue);
                 }
-            }
 
+                // check if the value we wrote is the largest one yet
+                if (Registers[register] > MaxValFound) MaxValFound = Registers[register];
+            }
         }
 
         private static bool GetCondition(string line, Dictionary<string, int> registers)
