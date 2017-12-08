@@ -4,7 +4,7 @@ namespace Kattis
 {
     class Program
     {
-        class Position
+        public class Position
         {
             public int X { get; set; }
             public int Y { get; set; }
@@ -83,15 +83,23 @@ namespace Kattis
 
         }
 
+        static int BOARD_X = 101;
+        static int BOARD_Y = 101;
+        static int[,] Board = new int[BOARD_X, BOARD_Y];
+
+        public static void SetBoard(Position position, int value)
+        {
+            Board[BOARD_X / 2 + position.X, BOARD_Y / 2 + position.Y] = value;
+        }
+
+        public static int GetBoard(Position position)
+        {
+            return Board[BOARD_X / 2 + position.X, BOARD_Y / 2 + position.Y];
+        }
+
         static void Main(string[] args)
         {
-            int side = 1;
-
-            // how many steps there is left in this square
-            // When steping out of a square (when its 0, always move one to the right)
-            // and increase side by 2
-            int stepsLeftInSquare = 1;
-
+            
             Square square = new Square();
 
             int counter = 1;
@@ -101,10 +109,16 @@ namespace Kattis
             var finalValue = 277678;
             //finalValue = 24;
 
-            while (counter <= finalValue)
+            SetBoard(new Position(0, 0), 1);
+
+            while (true)
             {
                 counter++;
                 square.Step(position);
+
+                SetBoard(position, GetSurroundingValues(position));
+
+                if (GetBoard(position) > finalValue) break;
                 //Console.Clear();
                 //Console.WriteLine(counter);
                 //Console.WriteLine(position.ToString());
@@ -112,6 +126,31 @@ namespace Kattis
             }
             Console.WriteLine(position.ToString());
             Console.WriteLine(Math.Abs(position.X) + Math.Abs(position.Y) - 1);
+
+            Console.WriteLine("Star 2: " + GetBoard(position));
+
+            //Console.WriteLine(GetBoard(new Position(0,0)));
+            //Console.WriteLine(GetBoard(new Position(1,1)));
+            //Console.WriteLine(GetBoard(new Position(-1,-1)));
+            //Console.WriteLine(GetBoard(new Position(0,2)));
+        }
+
+        private static int GetSurroundingValues(Position position)
+        {
+            var total = 0;
+            for(int x = -1; x <= 1; x++)
+            {
+                for (int y = -1; y <= 1; y++)
+                {
+                    if (x == 0 && y == 0) continue;
+                    total += GetBoard(new Position(position.X + x, position.Y + y));
+                    //Console.WriteLine(x + " " + y);
+                }
+            }
+            //Console.WriteLine(total);
+            //total += Board[position.X + 1, position.Y];
+            return total;
+
         }
     }
 }
