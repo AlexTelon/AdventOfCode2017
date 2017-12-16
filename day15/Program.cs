@@ -27,24 +27,63 @@ namespace Kattis
         static void Main(string[] args)
         {
 
+            //var initA = 65; // example
             var initA = 277;
             var factorA = 16807;
 
+            //var initB = 8921; // example
             var initB = 349;
             var factorB = 48271;
 
             Generator A = new Generator() { Previous = initA, Factor = factorA };
             Generator B = new Generator() { Previous = initB, Factor = factorB };
 
-            var sum = 0;
-            for (int i = 0; i < 40000000; i++)
-            {
-                var a = ToBinary(A.Next());
-                var b = ToBinary(B.Next());
+            List<string> aVals = new List<string>();
+            List<string> bVals = new List<string>();
 
+            var sum = 0;
+            var Adone = false;
+            var Bdone = false;
+            while(true)
+            {
+                var a = A.Next();
+                var b = B.Next();
+
+                if (!Adone && a % 4 == 0)
+                {
+                    aVals.Add(ToBinary(a));
+                    if (aVals.Count() >= 5000000) Adone = true;
+                }
+
+                if (!Bdone && b % 8 == 0)
+                {
+                    bVals.Add(ToBinary(b));
+                    if (bVals.Count() >= 5000000) Bdone = true;
+                }
                 //Console.WriteLine("A: " + a + " B: " + b);
-                if (Hit(a, b)) sum++;
+                if (Adone && Bdone) break;
             }
+
+            var length = Math.Min(aVals.Count(), bVals.Count());
+
+            //for (int i = 0; i < 5; i++)
+            //{
+            //    var a = aVals[i];
+            //    var b = bVals[i];
+            //    Console.WriteLine("A: " + a + " B: " + b);
+            //}
+
+
+            for (int i = 0; i < length; i++)
+            {
+                if (Hit(aVals[i], bVals[i]))
+                {
+                    Console.WriteLine("Hit! " + (i + 1));
+                    sum++;
+                }
+            }
+
+
             Console.WriteLine();
             Console.WriteLine(sum);
         }
