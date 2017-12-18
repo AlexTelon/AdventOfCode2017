@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Kattis
@@ -20,9 +22,11 @@ namespace Kattis
             public string B { get; set; } // string or value
         }
 
-        static void Main(string[] args)
+
+
+        static async Task Main(string[] args)
         {
-          
+
             var testInput = @"set a 1
 add a 2
 mul a a
@@ -33,6 +37,13 @@ rcv a
 jgz a -1
 set a 1
 jgz a -2";
+
+            var sendTest = @"snd 1
+snd p
+rcv a
+rcv b
+rcv c
+rcv d";
 
             var input = @"set i 31
 set a 1
@@ -76,32 +87,62 @@ snd a
 jgz f -16
 jgz a -19";
 
-            Solver(testInput);
-            Console.WriteLine();
-            Solver(input); // 3675 is too high
+            Dictionary<char, long> RegistersA = new Dictionary<char, long>();
+            Dictionary<char, long> RegistersB = new Dictionary<char, long>();
+
+            var BufferA = new ConcurrentQueue<long>();
+            var BufferB = new ConcurrentQueue<long>();
+
+            //Semaphore sem = new Semaphore(0, 1);
+            //Mutex mutex = new Mutex();
+            bool mutexA = true;
+            bool mutexB = true;
+
+            Object obj = new Object();
+
+            //Task.Run(() => Solver(sendTest, 0, RegistersA, BufferA, BufferB, ref mutexA, ref mutexB));
+            //await Task.Run(() => Solver(sendTest, 1, RegistersB, BufferB, BufferA, ref mutexB, ref mutexA));
+
+            Task[] tasks = new Task[2];
+
+            tasks[0] = Task.Run(() => Solver(input, 0, RegistersA, BufferA, BufferB, ref mutexA, ref mutexB, ref obj));
+            tasks[1] = Task.Run(() => Solver(input, 1, RegistersB, BufferB, BufferA, ref mutexB, ref mutexA, ref obj));
+
+            Task.WaitAll(tasks);
+            // 253 is too low!
+
 
         }
 
-        private static void Solver(string input)
+        private static void Solver(string input, int id,
+            Dictionary<char, long> registers,
+            ConcurrentQueue<long> bufferIn,
+            ConcurrentQueue<long> bufferOut,
+            ref bool mutexThis,
+            ref bool mutexOther,
+            ref Object obj)
         {
             long pc = 0; // program counter
             long currentFreq = 1337;
             bool done = false;
 
-            var registers = new Dictionary<char, long>();
+            long sendCount = 0;
+
+            //var registers = new Dictionary<char, long>();
+            registers.Add('p', id);
 
             List<string> rawInst = input.Split(new[] { Environment.NewLine }, StringSplitOptions.None).ToList();
             var instructions = rawInst.Select(ToInstruction).ToList();
-            //Console.WriteLine(string.Join(" ", instructions));
 
-            while(!done)
+            while (!done)
             {
                 //Console.WriteLine();
                 //Console.WriteLine("Pc: " + pc + "\nnext instruction: " + rawInst[(int)pc]);
                 //Console.WriteLine(string.Join(" ", registers.Keys));
                 //Console.WriteLine(string.Join(" ", registers.Values));
                 //Console.WriteLine();
-                ////Console.ReadKey();
+                //Console.ReadKey();
+
 
 
                 var instruction = instructions[(int)pc];
@@ -113,9 +154,10 @@ jgz a -19";
                     if (tmp.Count() == 1)
                     {
 
-                    // if its not a numer then its an address
-                    y = registers[tmp[0]];
-                    } else
+                        // if its not a numer then its an address
+                        y = registers[tmp[0]];
+                    }
+                    else
                     {
                         //throw new Exception("Something wrong with Y");
                     }
@@ -132,7 +174,10 @@ jgz a -19";
                 {
                     case Instruction.snd:
                         //snd X plays a sound with a frequency equal to the value of X.
-                        currentFreq = registers[x];
+                        //currentFreq = registers[x];
+                        bufferOut.Enqueue(registers[x]);
+                        sendCount++;
+                        //Console.WriteLine("id: " + id + " sendcount: " + sendCount);
                         break;
                     case Instruction.set:
                         //set X Y sets register X to the value of Y.
@@ -152,12 +197,39 @@ jgz a -19";
                         break;
                     case Instruction.rcv:
                         //rcv X recovers the frequency of the last sound played, but only when the value of X is not zero. (If it is zero, the command does nothing.)
-                        if (registers[x] != 0)
+                        //if (registers[x] != 0)
+                        //{
+                        //    Console.WriteLine(currentFreq);
+                        //    done = true;
+                        //}
+                        //Console.WriteLine("id " + id + " recving");
+
+                        //lock (obj)
+                        //{
+                        long num;
+                        //bufferIn.TryDequeue
+                        //Console.WriteLine("waiting.. ID: " + id + " SENDCOUNT: " + sendCount);
+                        while (!bufferIn.TryDequeue(out num))
                         {
-                            Console.WriteLine(currentFreq);
-                            done = true;
+                            mutexThis = false;
+                            // if the other thread is waiting and we have not sent anything then we are deadlocked
+                            if (!mutexOther && bufferOut.LongCount() == 0 && bufferIn.LongCount() == 0)
+                            {
+                                // the other side is also waiting! 
+                                // Deadlock found (probably)
+                                Console.WriteLine("deadlock.. ID: " + id + " SENDCOUNT: " + sendCount);
+                                return;
+                            }
                         }
+                        registers[x] = num;
+                        mutexThis = true;
+                        //if (!registers.ContainsKey(c)) registers[c] = 0;
+
+
+                        //registers[x] = bufferIn.Take();
                         break;
+                    //}
+
                     case Instruction.jgz:
                         //jgz X Y jumps with an offset of the value of Y, but only if the value of X is greater than zero. (An offset of 2 skips the next instruction, an offset of -1 jumps to the previous instruction, and so on.)
                         if (registers[x] > 0) pc += (y - 1);
@@ -167,6 +239,8 @@ jgz a -19";
                 }
                 pc++;
             }
+
+            Console.WriteLine("id " + id + " done!");
         }
 
         private static Command ToInstruction(string arg)
@@ -174,7 +248,7 @@ jgz a -19";
             var tokens = arg.Split(' ');
 
             //snd, set, add, mul, mod, rcv, jgz
-            Instruction instruction; 
+            Instruction instruction;
 
             switch (tokens[0])
             {
